@@ -1,0 +1,162 @@
+import React, { useState } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import { runStressAnalysis } from '../../services/api';
+import { Play, Layers, Map, Activity, Loader2, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { fieldsData } from '../map/fieldsData';
+
+const Sidebar = () => {
+    const {
+        selectedFields,
+        setStressResults,
+        loadingState,
+        setLoadingState,
+        analysisType,
+        setAnalysisType,
+        isOverlayVisible,
+        setIsOverlayVisible,
+        setReports
+    } = useAppContext();
+
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const handleRunAnalysis = async () => {
+        if (selectedFields.length === 0) return;
+
+        setLoadingState(true);
+        try {
+            const results = await runStressAnalysis(selectedFields);
+            setStressResults(results);
+
+            // Create a dynamic report and push it to the context
+            const newReport = {
+                id: Date.now().toString(),
+                date: new Date().toISOString(),
+                fieldsAnalyzed: [...selectedFields],
+                summary: results.summary,
+                analysisType: analysisType,
+                fullResults: results
+            };
+
+            setReports(prev => [newReport, ...prev]);
+
+        } catch (error) {
+            console.error('Analysis failed:', error);
+        } finally {
+            setLoadingState(false);
+        }
+    };
+
+    const analysisOptions = ['Water', 'Nutrient', 'Combined'];
+
+    return (
+        <div className="w-80 bg-white h-full border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto">
+            <div className="p-6">
+                <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <Activity size={20} className="text-agri-green" />
+                    Field Analysis
+                </h2>
+
+                {/* Selected Fields Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                            Selected Fields ({selectedFields.length})
+                        </h3>
+                        <button
+                            onClick={() => setIsOverlayVisible(!isOverlayVisible)}
+                            className="text-slate-400 hover:text-agri-green transition-colors"
+                            title={isOverlayVisible ? "Hide Heatmap" : "Show Heatmap"}
+                        >
+                            {isOverlayVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        {selectedFields.length === 0 ? (
+                            <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center">
+                                <p className="text-sm text-slate-500">Click on the map to select fields for analysis</p>
+                            </div>
+                        ) : (
+                            selectedFields.map(fieldId => {
+                                const fieldName = fieldsData.find(f => f.id === fieldId)?.name || fieldId;
+                                return (
+                                    <div key={fieldId} className="flex items-center gap-3 p-3 rounded-lg bg-agri-light bg-opacity-30 border border-agri-light">
+                                        <Map size={16} className="text-agri-dark" />
+                                        <span className="text-sm font-medium text-slate-700 capitalize">
+                                            {fieldName}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* Analysis Type Dropdown */}
+                <div className="mb-8 relative">
+                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                        Model Type
+                    </h3>
+                    <button
+                        type="button"
+                        disabled={loadingState}
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-agri-green/50 disabled:opacity-50"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Layers size={16} className="text-slate-400" />
+                            {analysisType}
+                        </div>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isDropdownOpen && (
+                        <div className="absolute z-10 top-full left-0 right-0 mt-2 bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden">
+                            {analysisOptions.map(option => (
+                                <button
+                                    key={option}
+                                    onClick={() => {
+                                        setAnalysisType(option);
+                                        setIsDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors ${analysisType === option ? 'bg-agri-light/20 text-agri-dark font-medium' : 'text-slate-700'
+                                        }`}
+                                >
+                                    {option}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Action Button */}
+                <div className="mt-auto">
+                    <button
+                        onClick={handleRunAnalysis}
+                        disabled={selectedFields.length === 0 || loadingState}
+                        className="w-full flex items-center justify-center gap-2 bg-agri-green text-white hover:bg-agri-dark transition-colors font-semibold rounded-xl py-3.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-green focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loadingState ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Processing...
+                            </>
+                        ) : (
+                            <>
+                                <Play size={18} />
+                                Run AI Analysis
+                            </>
+                        )}
+                    </button>
+                    {selectedFields.length === 0 && (
+                        <p className="text-xs text-center text-rose-500 mt-3">
+                            Select at least one field first
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Sidebar;
