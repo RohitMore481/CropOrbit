@@ -17,7 +17,7 @@ const Navbar = () => {
             <div className="flex items-center gap-8">
                 <div className="flex items-center gap-2 text-agri-green">
                     <Leaf size={24} className="text-agri-green" />
-                    <span className="text-xl font-bold tracking-tight text-white">Stress-Vision</span>
+                    <span className="text-xl font-bold tracking-tight text-white">Crop Orbit</span>
                 </div>
 
                 <div className="hidden md:flex items-center gap-2">

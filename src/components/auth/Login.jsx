@@ -29,7 +29,7 @@ const Login = () => {
                     <div className="w-16 h-16 bg-agri-light rounded-2xl flex items-center justify-center mb-4 text-agri-dark">
                         <Leaf size={32} />
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Stress-Vision</h2>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Crop Orbit</h2>
                     <p className="text-slate-500 mt-2 text-center text-sm">
                         AI-powered precision agriculture monitoring dashboard
                     </p>
