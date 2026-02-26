@@ -6,8 +6,9 @@ const Legend = () => {
     const { stressResults } = useAppContext();
     const [minimized, setMinimized] = useState(false);
 
-    // Only show the legend if we have loaded analysis results
     if (!stressResults?.summary) return null;
+
+    const { health_score, stress_percentage } = stressResults.summary;
 
     if (minimized) {
         return (
@@ -24,11 +25,13 @@ const Legend = () => {
     }
 
     return (
-        <div className="absolute bottom-6 left-6 z-[1000] bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-64 transition-all duration-300">
+        <div className="absolute bottom-6 left-6 z-[1000] bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-72 transition-all duration-300">
+
+            {/* Header */}
             <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                     <Layers size={16} className="text-slate-500" />
-                    Map Legend
+                    Stress-Vision Legend
                 </h4>
                 <button
                     onClick={() => setMinimized(true)}
@@ -41,12 +44,27 @@ const Legend = () => {
                 </button>
             </div>
 
-            <div className="space-y-3">
-                <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Stress Index</p>
+            <div className="space-y-4">
 
+                {/* Gradient Bar */}
+                <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                        Stress Probability Scale
+                    </p>
+
+                    <div className="h-3 w-full rounded bg-gradient-to-r from-green-500 via-amber-400 to-red-500"></div>
+
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>0.0</span>
+                        <span>0.5</span>
+                        <span>1.0</span>
+                    </div>
+                </div>
+
+                {/* Category Labels */}
+                <div>
                     <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 rounded bg-agri-green opacity-70"></div>
+                        <div className="w-4 h-4 rounded bg-green-500 opacity-70"></div>
                         <span className="text-sm text-slate-700">Healthy (0.0 - 0.4)</span>
                     </div>
 
@@ -61,10 +79,21 @@ const Legend = () => {
                     </div>
                 </div>
 
+                {/* Dynamic Summary */}
+                <div className="pt-3 border-t border-slate-100 text-xs text-slate-600 space-y-1">
+                    <p><strong>Field Health Score:</strong> {health_score}</p>
+                    <p><strong>Stress Percentage:</strong> {stress_percentage}%</p>
+                </div>
+
+                {/* Explanation */}
                 <div className="pt-3 border-t border-slate-100 flex items-start gap-2 text-xs text-slate-500">
                     <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
-                    <p>Overlays indicate areas where AI detected potential crop stress based on multi-spectral data.</p>
+                    <p>
+                        Overlay represents AI-derived pre-visual crop stress probability
+                        computed from multi-spectral vegetation indices and thermal signals.
+                    </p>
                 </div>
+
             </div>
         </div>
     );

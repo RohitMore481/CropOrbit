@@ -1,35 +1,116 @@
-import React from 'react';
-import { MapContainer as LeafletMap, TileLayer, ZoomControl } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import FieldLayer from './FieldLayer';
-import StressOverlay from './StressOverlay';
-import Legend from './Legend';
+import { MapContainer as LeafletMap, TileLayer, FeatureGroup } from "react-leaflet";
+import { EditControl } from "react-leaflet-draw";
+import "leaflet/dist/leaflet.css";
+import "leaflet-draw/dist/leaflet.draw.css";
 
-const mapCenter = [38.5449, -121.7405]; // Default center (e.g., Davis, CA)
+import FieldLayer from "./FieldLayer";
+import StressOverlay from "./StressOverlay";
+import Legend from "./Legend";
+import { useAppContext } from "../../context/AppContext";
 
-const MapContainer = () => {
-    return (
-        <div className="absolute inset-0 z-0">
-            <LeafletMap
-                center={mapCenter}
-                zoom={14}
-                maxZoom={18}
-                zoomControl={false}
-                className="w-full h-full"
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.maxar.com/">Maxar</a>'
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    maxZoom={18}
-                />
-                <ZoomControl position="bottomright" />
+export default function MapContainer() {
 
-                <FieldLayer />
-                <StressOverlay />
-                <Legend />
-            </LeafletMap>
-        </div>
-    );
-};
+  const {
+    setFields,
+    setSelectedFields,
+    selectedFields,
+    stressResults
+  } = useAppContext();
 
-export default MapContainer;
+  return (
+    <div className="flex-1 relative h-full">
+      <LeafletMap
+        center={[21.1458, 79.0882]}
+        zoom={15}
+        scrollWheelZoom={true}
+        zoomAnimation={true}
+        zoomAnimationThreshold={4}
+        className="h-full w-full"
+      >
+
+        {/* Satellite Layer */}
+        <TileLayer
+          attribution='&copy; Esri &mdash; Source: Esri, Maxar'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        />
+
+        {/* Drawing Layer */}
+        <FeatureGroup>
+            <EditControl
+                position="topright"
+                draw={{
+                rectangle: false,
+                polygon: true,
+                circle: false,
+                polyline: false,
+                marker: false,
+                circlemarker: false
+                }}
+                edit={{
+                edit: false,
+                remove: true
+                }}
+                onCreated={(e) => {
+                    const layer = e.layer;
+                    const geoJson = layer.toGeoJSON();
+                  
+                    const newFieldId = `field_${Date.now()}`;
+                  
+                    const newField = {
+                      id: newFieldId,
+                      name: "User Field",
+                      geometry: geoJson.geometry
+                    };
+                  
+                    // 🔥 Add to React state
+                    setFields(prev => [...prev, newField]);
+                    setSelectedFields(prev => [...prev, newFieldId]);
+                  
+                    // 🔥 REMOVE the layer from FeatureGroup immediately
+                    e.layer.remove();
+                }}
+                onDeleted={(e) => {
+                    e.layers.eachLayer((layer) => {
+                      const geoJson = layer.toGeoJSON();
+                  
+                      setFields(prev =>
+                        prev.filter(field =>
+                          JSON.stringify(field.geometry) !== JSON.stringify(geoJson.geometry)
+                        )
+                      );
+                  
+                      setSelectedFields(prev =>
+                        prev.filter(id =>
+                          fields.find(f =>
+                            f.id === id &&
+                            JSON.stringify(f.geometry) !== JSON.stringify(geoJson.geometry)
+                          )
+                        )
+                      );
+                  
+                      setStressResults(prev => {
+                        return {
+                          ...prev,
+                          fields: {}
+                        };
+                      });
+                    });
+                  }}
+            />
+        </FeatureGroup>
+
+        {/* Static Fields */}
+       
+
+        {/* Stress Overlay */}
+        <StressOverlay
+            selectedFields={selectedFields}
+            stressResults={stressResults}
+        />
+     <FieldLayer />
+        <Legend />
+
+      </LeafletMap>
+    </div>
+  );
+}

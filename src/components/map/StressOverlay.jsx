@@ -1,92 +1,122 @@
 import React, { useMemo } from 'react';
-import { useMap, Polygon } from 'react-leaflet';
+import { Polygon } from 'react-leaflet';
 import { useAppContext } from '../../context/AppContext';
 import { fieldsData } from './fieldsData';
-import { squareGrid, bbox, intersect, polygon } from '@turf/turf';
+import { bbox, polygon, intersect, squareGrid } from '@turf/turf';
 
-const getStressColor = (healthScore) => {
-    // Green -> Yellow -> Red
-    if (healthScore >= 80) return '#10b981'; // Healthy - agri green
-    if (healthScore >= 50) return '#f59e0b'; // Early Stress - amber
-    return '#ef4444'; // Severe Stress - red
+const getStressColor = (value) => {
+    if (value < 0.4) return '#10b981';   // Green
+    if (value < 0.7) return '#f59e0b';   // Yellow
+    return '#ef4444';                    // Red
 };
 
 const StressOverlay = () => {
-    const { stressResults, selectedFields, isOverlayVisible } = useAppContext();
-    const map = useMap();
+
+    const {
+        stressResults,
+        selectedFields,
+        isOverlayVisible,
+        fields
+    } = useAppContext();
 
     const overlays = useMemo(() => {
-        if (!isOverlayVisible || !stressResults || !stressResults.fields) return [];
 
-        let allGridCells = [];
+        if (!isOverlayVisible || !stressResults?.fields) return [];
 
-        selectedFields.forEach((fieldId) => {
+        let gridCells = [];
+
+        selectedFields.forEach(fieldId => {
+
             const fieldData = stressResults.fields[fieldId];
-            if (!fieldData || !fieldData.stress_matrix) return;
+            if (!fieldData?.stress_matrix) return;
 
-            // Find polygon coordinates from fieldsData
-            const fieldObj = fieldsData.find(f => f.id === fieldId);
+            // 🔹 Get geometry (dynamic OR static)
+            const fieldObj =
+                fields.find(f => f.id === fieldId) ||
+                fieldsData.find(f => f.id === fieldId);
+
             if (!fieldObj) return;
 
-            // Ensure coordinates are closed (first equals last) for Turf
-            let coords = [...fieldObj.coordinates];
-            if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
-                coords.push([...coords[0]]);
+            let turfCoords;
+
+            // Static field
+            if (fieldObj.coordinates) {
+                const closed = [...fieldObj.coordinates];
+                if (
+                    closed[0][0] !== closed[closed.length - 1][0] ||
+                    closed[0][1] !== closed[closed.length - 1][1]
+                ) {
+                    closed.push([...closed[0]]);
+                }
+
+                turfCoords = closed.map(c => [c[1], c[0]]); // convert to [lng, lat]
             }
 
-            // Note: Turf expects [longitude, latitude] but Leaflet uses [latitude, longitude]
-            // We need to flip the coordinates for Turf
-            const turfCoords = coords.map(c => [c[1], c[0]]);
+            // Dynamic field (GeoJSON)
+            else if (fieldObj.geometry) {
+                turfCoords = fieldObj.geometry.coordinates[0];
+            }
 
+            if (!turfCoords || turfCoords.length < 4) return;
+
+            let turfPoly;
             try {
-                const turfPoly = polygon([turfCoords]);
-                const boundingBox = bbox(turfPoly);
+                turfPoly = polygon([turfCoords]);
+            } catch {
+                return;
+            }
 
-                // Create a 10x10 grid over the bounding box
-                const cellSide = Math.max(
-                    (boundingBox[2] - boundingBox[0]) / 10,
-                    (boundingBox[3] - boundingBox[1]) / 10
+            const boundingBox = bbox(turfPoly);
+
+            // 🔥 Generate grid in meters (visible cells)
+            const grid = squareGrid(
+                boundingBox,
+                30,                 // 🔥 cell size in meters (adjust 20–50 if needed)
+                { units: 'meters' }
+            );
+
+            const flatMatrix = fieldData.stress_matrix.flat();
+            let cellIndex = 0;
+
+            grid.features.forEach(cell => {
+
+                let clipped;
+
+                try {
+                    clipped = intersect(turfPoly, cell);
+                } catch {
+                    return;
+                }
+
+                if (!clipped || !clipped.geometry) return;
+
+                const leafletCoords =
+                    clipped.geometry.coordinates[0].map(c => [c[1], c[0]]);
+
+                const stressValue =
+                    flatMatrix[cellIndex % flatMatrix.length];
+
+                gridCells.push(
+                    <Polygon
+                        key={`stress-${fieldId}-${cellIndex}`}
+                        positions={leafletCoords}
+                        pathOptions={{
+                            color: 'transparent',
+                            fillColor: getStressColor(stressValue),
+                            fillOpacity: 0.75,
+                            interactive: false
+                        }}
+                    />
                 );
 
-                const grid = squareGrid(boundingBox, cellSide, { units: 'degrees' });
+                cellIndex++;
+            });
 
-                let cellIndex = 0;
-                const matrix = fieldData.stress_matrix.flat();
-
-                grid.features.forEach((cell) => {
-                    // Check if cell intersects with the field polygon
-                    const ix = intersect(turfPoly, cell);
-                    if (ix) {
-                        // Leaflet needs [lat, lng]
-                        const leafletPolys = ix.geometry.coordinates[0].map(c => [c[1], c[0]]);
-
-                        // Assign stress score from the matrix
-                        const stressValue = matrix[cellIndex % matrix.length];
-                        const colorScore = 100 - (stressValue * 100);
-
-                        allGridCells.push(
-                            <Polygon
-                                key={`grid-${fieldId}-${cellIndex}`}
-                                positions={leafletPolys}
-                                pathOptions={{
-                                    color: 'transparent',
-                                    fillColor: getStressColor(colorScore),
-                                    fillOpacity: 0.6,
-                                    interactive: false // Let underlying FieldLayer handle clicks
-                                }}
-                            />
-                        );
-                        cellIndex++;
-                    }
-                });
-
-            } catch (err) {
-                console.error("Error generating grid for", fieldId, err);
-            }
         });
 
-        return allGridCells;
-    }, [stressResults, selectedFields, isOverlayVisible]);
+        return gridCells;
+
+    }, [stressResults, selectedFields, isOverlayVisible, fields]);
 
     return <>{overlays}</>;
 };

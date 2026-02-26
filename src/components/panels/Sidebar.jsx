@@ -21,31 +21,15 @@ const Sidebar = () => {
 
     const handleRunAnalysis = async () => {
         if (selectedFields.length === 0) return;
-
+      
         setLoadingState(true);
-        try {
-            const results = await runStressAnalysis(selectedFields);
-            setStressResults(results);
-
-            // Create a dynamic report and push it to the context
-            const newReport = {
-                id: Date.now().toString(),
-                date: new Date().toISOString(),
-                fieldsAnalyzed: [...selectedFields],
-                summary: results.summary,
-                analysisType: analysisType,
-                fullResults: results
-            };
-
-            setReports(prev => [newReport, ...prev]);
-
-        } catch (error) {
-            console.error('Analysis failed:', error);
-        } finally {
-            setLoadingState(false);
-        }
-    };
-
+      
+        const results = await runStressAnalysis(selectedFields);
+      
+        setStressResults(results);
+        setLoadingState(false);
+      };
+      
     const analysisOptions = ['Water', 'Nutrient', 'Combined'];
 
     return (
